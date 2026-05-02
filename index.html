@@ -209,11 +209,13 @@ const GLOBAL = `
   .mobile-menu a { font-size:28px; font-weight:300; color:#E5E5E5; transition:color .2s; }
   .mobile-menu a:hover { color:#E63946; }
   .lang-btn {
-    background:none; border:1px solid rgba(255,255,255,.15); color:#A8A8A8;
-    border-radius:6px; padding:3px 8px; font-size:11px; font-family:'Figtree',sans-serif;
-    cursor:pointer; transition:all .2s; letter-spacing:.06em; text-transform:uppercase;
+    background:none; border:1px solid rgba(255,255,255,.12);
+    border-radius:8px; padding:3px 5px; line-height:1;
+    cursor:pointer; transition:border-color .2s; display:flex; align-items:center;
+    opacity:0.75;
   }
-  .lang-btn.active, .lang-btn:hover { border-color:#E63946; color:#E5E5E5; }
+  .lang-btn.active { border-color:#E63946; opacity:1; }
+  .lang-btn:hover { border-color:rgba(255,255,255,.4); opacity:1; }
   .testi-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:24px; }
   @media(max-width:768px) {
     .hero-bottom   { padding:24px !important; gap:20px !important; }
@@ -309,10 +311,34 @@ const Navbar = ({lang,setLang,t}) => {
     {label:t.nav[1],href:"#pilares",   ext:false},
     {label:t.nav[2],href:"#depoimentos",ext:false},
   ];
+  const FLAG_SVG = {
+    pt: <><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 14" width="28" height="20" style={{flexShrink:0}}>
+    <rect width="20" height="14" fill="#009C3B"/>
+    <polygon points="10,1.5 18.5,7 10,12.5 1.5,7" fill="#FEDF00"/>
+    <circle cx="10" cy="7" r="3.2" fill="#002776"/>
+    <path d="M6.9,6.2 Q10,5.2 13.1,6.2" stroke="#fff" strokeWidth="0.5" fill="none"/>
+  </svg></>,
+    en: <><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 14" width="28" height="20" style={{flexShrink:0}}>
+    <rect width="20" height="14" fill="#012169"/>
+    <path d="M0,0 L20,14 M20,0 L0,14" stroke="#fff" strokeWidth="2.8"/>
+    <path d="M0,0 L20,14 M20,0 L0,14" stroke="#C8102E" strokeWidth="1.6"/>
+    <path d="M10,0 V14 M0,7 H20" stroke="#fff" strokeWidth="4"/>
+    <path d="M10,0 V14 M0,7 H20" stroke="#C8102E" strokeWidth="2.4"/>
+  </svg></>,
+    es: <><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 14" width="28" height="20" style={{flexShrink:0}}>
+    <rect width="20" height="14" fill="#c60b1e"/>
+    <rect y="3.5" width="20" height="7" fill="#ffc400"/>
+    <rect y="3.5" width="20" height="1" fill="#c60b1e"/>
+    <rect y="9.5" width="20" height="1" fill="#c60b1e"/>
+  </svg></>,
+  };
   const LangButtons = () => (
     <div style={{display:"flex",gap:6}}>
       {["pt","en","es"].map(l=>(
-        <button key={l} className={`lang-btn${lang===l?" active":""}`} onClick={()=>setLang(l)}>{l.toUpperCase()}</button>
+        <button key={l} className={`lang-btn${lang===l?" active":""}`} onClick={()=>setLang(l)}
+          title={l.toUpperCase()}>
+          {FLAG_SVG[l]}
+        </button>
       ))}
     </div>
   );
@@ -352,7 +378,10 @@ const Navbar = ({lang,setLang,t}) => {
         <button onClick={()=>setMenuOpen(false)} style={{position:"absolute",top:24,right:24,background:"none",border:"none",cursor:"pointer",color:"#E5E5E5"}}><IconClose/></button>
         <div style={{display:"flex",gap:8}}>
           {["pt","en","es"].map(l=>(
-            <button key={l} className={`lang-btn${lang===l?" active":""}`} onClick={()=>setLang(l)}>{l.toUpperCase()}</button>
+            <button key={l} className={`lang-btn${lang===l?" active":""}`} onClick={()=>setLang(l)}
+              title={l.toUpperCase()} style={{padding:"5px 7px"}}>
+              {FLAG_SVG[l]}
+            </button>
           ))}
         </div>
         {navLinks.map((l,i)=>(
@@ -634,17 +663,38 @@ const Footer = ({t}) => (
 );
 
 function App() {
-  const detectLang = () => {
+  const detectLangFromNav = () => {
     const nav = (navigator.language || "pt").toLowerCase();
     if(nav.startsWith("es")) return "es";
     if(nav.startsWith("en")) return "en";
     return "pt";
   };
-  const [lang,setLang] = useState(detectLang);
+  const [lang,setLang] = useState(detectLangFromNav);
   const t = T[lang];
+
   useEffect(()=>{
     document.documentElement.style.overflowX="hidden";
     document.body.style.overflowX="hidden";
+
+    // Detecta idioma pelo IP via API gratuita (sem key)
+    // Prioriza IP sobre navigator (usuário vindo de Instagram/TikTok)
+    fetch("https://ipapi.co/json/", { signal: AbortSignal.timeout(3000) })
+      .then(r => r.json())
+      .then(data => {
+        const country = (data.country_code || "").toUpperCase();
+        // Países hispanohablantes
+        const ES_COUNTRIES = ["ES","MX","AR","CO","CL","PE","VE","EC","BO","PY","UY","CR","PA","DO","HN","SV","GT","NI","CU","PR"];
+        // Países anglófonos
+        const EN_COUNTRIES = ["US","GB","AU","CA","NZ","IE","ZA","NG","GH","KE","IN","PH","SG","HK","MY"];
+        if(ES_COUNTRIES.includes(country)) setLang("es");
+        else if(EN_COUNTRIES.includes(country)) setLang("en");
+        else if(country === "BR" || country === "PT") setLang("pt");
+        // Para outros países usa EN como padrão internacional
+        else setLang("en");
+      })
+      .catch(() => {
+        // Se a API falhar, mantém o idioma do navigator (já definido no useState)
+      });
   },[]);
   return (
     <>
